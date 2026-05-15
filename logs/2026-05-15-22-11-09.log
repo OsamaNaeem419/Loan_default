@@ -1,0 +1,14 @@
+[2026-05-15 22:11:09,737] INFO - Connecting to MySQL database
+[2026-05-15 22:11:09,741] INFO - Connection successful
+[2026-05-15 22:11:10,175] INFO - Data fetched successfully: (45000, 14)
+[2026-05-15 22:11:10,191] INFO - Starting data ingestion
+[2026-05-15 22:11:10,191] INFO - Connecting to MySQL database
+[2026-05-15 22:11:10,208] INFO - Connection successful
+[2026-05-15 22:11:10,539] INFO - Data fetched successfully: (45000, 14)
+[2026-05-15 22:11:10,542] INFO - Data shape before processing: (45000, 14)
+[2026-05-15 22:11:10,552] INFO - Dropped columns: ['person_education', 'person_gender']
+[2026-05-15 22:11:10,557] INFO - Total missing values before dropna: 0
+[2026-05-15 22:11:10,563] INFO - Total missing values after dropna: 0
+[2026-05-15 22:11:10,563] INFO - Data shape after cleaning: (45000, 12)
+[2026-05-15 22:11:10,688] INFO - Train-test split completed
+[2026-05-15 22:11:10,808] INFO - Data ingestion completed successfully

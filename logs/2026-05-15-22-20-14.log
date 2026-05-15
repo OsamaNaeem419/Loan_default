@@ -1,0 +1,20 @@
+[2026-05-15 22:20:14,616] INFO - Connecting to MySQL database
+[2026-05-15 22:20:14,621] INFO - Connection successful
+[2026-05-15 22:20:15,073] INFO - Data fetched successfully: (45000, 14)
+[2026-05-15 22:20:15,089] INFO - Starting data ingestion
+[2026-05-15 22:20:15,089] INFO - Connecting to MySQL database
+[2026-05-15 22:20:15,114] INFO - Connection successful
+[2026-05-15 22:20:15,466] INFO - Data fetched successfully: (45000, 14)
+[2026-05-15 22:20:15,468] INFO - Data shape before processing: (45000, 14)
+[2026-05-15 22:20:15,469] INFO - Dropped columns: ['person_education', 'person_gender']
+[2026-05-15 22:20:15,481] INFO - Total missing values before dropna: 0
+[2026-05-15 22:20:15,490] INFO - Total missing values after dropna: 0
+[2026-05-15 22:20:15,490] INFO - Data shape after cleaning: (44992, 12)
+[2026-05-15 22:20:15,633] INFO - Train-test split completed
+[2026-05-15 22:20:15,750] INFO - Data ingestion completed successfully
+[2026-05-15 22:20:15,769] INFO - Starting data transformation
+[2026-05-15 22:20:15,822] INFO - Train and test data loaded
+[2026-05-15 22:20:15,823] INFO - Categorical columns: ['person_home_ownership', 'loan_intent', 'previous_loan_defaults_on_file']
+[2026-05-15 22:20:15,823] INFO - Creating preprocessing object (OneHotEncoder)
+[2026-05-15 22:20:15,840] INFO - Data transformation completed
+[2026-05-15 22:20:15,841] INFO - Preprocessor saved at artifacts\preprocessor.pkl
