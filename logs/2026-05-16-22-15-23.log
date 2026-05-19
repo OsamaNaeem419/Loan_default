@@ -1,0 +1,5 @@
+[2026-05-16 22:15:23,666] INFO - Prediction pipeline started
+[2026-05-16 22:15:23,667] INFO - Loading preprocessor
+[2026-05-16 22:15:24,306] INFO - Transforming input data
+[2026-05-16 22:15:24,309] INFO - Loading model
+[2026-05-16 22:15:24,453] INFO - Prediction completed

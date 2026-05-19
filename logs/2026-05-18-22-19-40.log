@@ -1,0 +1,25 @@
+[2026-05-18 22:19:40,157] INFO - Connecting to MySQL database
+[2026-05-18 22:19:40,162] INFO - Connection successful
+[2026-05-18 22:19:40,618] INFO - Data fetched successfully: (45000, 14)
+[2026-05-18 22:19:40,690] INFO - Training pipeline started
+[2026-05-18 22:19:40,690] INFO - Starting data ingestion
+[2026-05-18 22:19:40,690] INFO - Connecting to MySQL database
+[2026-05-18 22:19:40,705] INFO - Connection successful
+[2026-05-18 22:19:41,044] INFO - Data fetched successfully: (45000, 14)
+[2026-05-18 22:19:41,050] INFO - Data shape before processing: (45000, 14)
+[2026-05-18 22:19:41,061] INFO - Dropped columns: ['person_education', 'person_gender']
+[2026-05-18 22:19:41,062] INFO - Total missing values before dropna: 0
+[2026-05-18 22:19:41,066] INFO - Total missing values after dropna: 0
+[2026-05-18 22:19:41,066] INFO - Data shape after cleaning: (44992, 12)
+[2026-05-18 22:19:41,194] INFO - Train-test split completed
+[2026-05-18 22:19:41,309] INFO - Data ingestion completed successfully
+[2026-05-18 22:19:41,321] INFO - Starting data transformation
+[2026-05-18 22:19:41,385] INFO - Categorical columns: ['person_home_ownership', 'loan_intent', 'previous_loan_defaults_on_file']
+[2026-05-18 22:19:41,385] INFO - Creating preprocessing object
+[2026-05-18 22:19:41,415] INFO - Data transformation completed
+[2026-05-18 22:19:41,417] INFO - Preprocessor saved successfully
+[2026-05-18 22:19:41,418] INFO - Column order saved successfully
+[2026-05-18 22:19:41,418] INFO - Starting model training
+[2026-05-18 22:19:41,732] INFO - ROC-AUC: 0.9757106015145021
+[2026-05-18 22:19:41,749] INFO - Model saved at artifacts\model.pkl
+[2026-05-18 22:19:41,749] INFO - Training pipeline completed. Model saved at artifacts\model.pkl

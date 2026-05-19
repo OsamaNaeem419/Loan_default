@@ -4,6 +4,8 @@ from src.models.model_trainer import ModelTrainer
 from src.logger import logging
 from src.exception import CustomException
 import sys
+import pickle
+import os
 
 
 class TrainPipeline:
@@ -21,9 +23,19 @@ class TrainPipeline:
             # STEP 2: DATA TRANSFORMATION
             # -----------------------------
             transformation = DataTransformation()
-            X_train, X_test, y_train, y_test, _ = transformation.initiate_data_transformation(
+            X_train, X_test, y_train, y_test, preprocessor, columns = transformation.initiate_data_transformation(
                 train_path, test_path
             )
+
+            # -----------------------------
+            # SAVE COLUMN ORDER (CRITICAL FIX)
+            # -----------------------------
+            os.makedirs("artifacts", exist_ok=True)
+
+            with open("artifacts/columns.pkl", "wb") as f:
+                pickle.dump(columns, f)
+
+            logging.info("Column order saved successfully")
 
             # -----------------------------
             # STEP 3: MODEL TRAINING

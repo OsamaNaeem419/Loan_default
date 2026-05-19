@@ -1,0 +1,3 @@
+[2026-05-18 22:03:59,193] INFO - Connecting to MySQL database
+[2026-05-18 22:03:59,198] INFO - Connection successful
+[2026-05-18 22:03:59,658] INFO - Data fetched successfully: (44719, 14)
