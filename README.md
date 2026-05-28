@@ -45,7 +45,7 @@ loan-approval-system/
 ├── src/
 │   ├── components/
 │   ├── pipeline/
-│   ├── logger.py
+│   ├── models/
 │   ├── exception.py
 │   └── utils.py
 │
@@ -75,16 +75,6 @@ loan-approval-system/
 
 ---
 
-## Model Details
-
-- Model outputs probability of loan approval
-- Decision threshold tuning:
-  - 0.94 → Low risk (minimize false positives)
-  - 0.69 → Balanced performance (used in this project)
-
-Final deployed threshold: 0.69
-
----
 
 ## How to Run
 
@@ -92,38 +82,10 @@ Final deployed threshold: 0.69
 uvicorn main:app --reload
 
 ### 2. Start Streamlit frontend
-streamlit run web_app/streamlit_app.py
+streamlit run webapp/streamlit_app.py
 
 ---
 
-## API
-
-POST /predict
-
-Request:
-{
-  "person_age": 25,
-  "person_gender": "male",
-  "person_education": "Bachelor",
-  "person_income": 50000,
-  "person_emp_exp": 2,
-  "person_home_ownership": "RENT",
-  "loan_amnt": 10000,
-  "loan_intent": "EDUCATION",
-  "loan_int_rate": 10.5,
-  "loan_percent_income": 0.2,
-  "cb_person_cred_hist_length": 3,
-  "credit_score": 650,
-  "previous_loan_defaults_on_file": "No"
-}
-
-Response:
-{
-  "prediction": 1,
-  "probability": 0.82
-}
-
----
 
 ## Business Logic
 
@@ -133,16 +95,3 @@ Response:
 
 ---
 
-## Key Insight
-
-Threshold tuning was used to balance:
-- False Positives (bad loans approved)
-- False Negatives (good loans rejected)
-
-This makes the system adaptable to business risk requirements.
-
----
-
-## Conclusion
-
-This project demonstrates a full end-to-end machine learning pipeline with deployment-ready architecture using FastAPI and Streamlit.
