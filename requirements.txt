@@ -1,8 +1,12 @@
-scikit-learn
-xgboost
 fastapi
 uvicorn
+streamlit
+requests
 pandas
 numpy
-shap
-joblib
+scikit-learn
+xgboost
+pymysql
+python-dotenv
+pydantic
+pickle-mixin
