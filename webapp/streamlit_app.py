@@ -10,30 +10,35 @@ st.subheader("Enter Loan Details")
 
 col1, col2, col3 = st.columns(3)
 
+# NOTE: person_gender and person_education were removed from this form --
+# the training pipeline (data_ingestion.py) explicitly drops both columns
+# before the model ever sees them, so the model was never trained on
+# gender or education. Asking the user for them did nothing except add
+# two pointless fields to fill in.
 with col1:
     person_age = st.number_input("Age", 18, 100, 25)
-    person_gender = st.selectbox("Gender", ["male", "female"])
-
-with col2:
-    person_education = st.selectbox(
-        "Education",
-        ["High School", "Associate", "Bachelor", "Master"]
-    )
     person_emp_exp = st.number_input("Work Experience", 0, 50, 0)
 
-with col3:
+with col2:
     credit_score = st.number_input("Credit Score", 300, 900, 650)
     cb_person_cred_hist_length = st.number_input("Credit History Length", 0, 50, 3)
+
+with col3:
+    person_income = st.number_input("Income", value=50000)
+    loan_amnt = st.number_input("Loan Amount", value=10000)
 
 col4, col5 = st.columns(2)
 
 with col4:
-    person_income = st.number_input("Income", value=50000)
-    loan_amnt = st.number_input("Loan Amount", value=10000)
+    loan_int_rate = st.number_input("Interest Rate", value=10.0)
 
 with col5:
-    loan_int_rate = st.number_input("Interest Rate", value=10.0)
-    loan_percent_income = st.number_input("Loan % Income", value=0.2)
+    # loan_percent_income is just loan_amnt / person_income -- it's fully
+    # determined by the two fields above, so it shouldn't be a free-form
+    # input the user can set to something inconsistent. Compute it
+    # automatically instead and just show it to them.
+    loan_percent_income = round(loan_amnt / person_income, 4) if person_income > 0 else 0.0
+    st.metric("Loan % of Income", f"{loan_percent_income:.2f}")
 
 person_home_ownership = st.selectbox(
     "Home Ownership",
@@ -57,8 +62,6 @@ if st.button("Predict 🚀"):
 
     payload = {
         "person_age": person_age,
-        "person_gender": person_gender,
-        "person_education": person_education,
         "person_income": person_income,
         "person_emp_exp": person_emp_exp,
         "person_home_ownership": person_home_ownership,
