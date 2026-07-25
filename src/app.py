@@ -1,10 +1,28 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 
 from src.pipeline.predict_pipeline import PredictPipeline
 
 app = FastAPI()
+
+
+# -------------------------------
+# CORS - the React dev server runs on a different origin (port 5173),
+# so the browser needs this to be allowed to call /predict.
+# -------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # -------------------------------
@@ -70,7 +88,8 @@ def predict(data: LoanInput):
 
         return {
             "prediction": result["prediction"],
-            "probability": result["probability"]
+            "probability": result["probability"],
+            "explanation": result["explanation"]
         }
 
     except Exception as e:

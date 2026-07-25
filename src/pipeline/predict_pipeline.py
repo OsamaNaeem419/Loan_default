@@ -6,6 +6,7 @@ import sys
 
 from src.exception import CustomException
 from src.logger import logging
+from src.pipeline.explain import PredictionExplainer
 
 
 class PredictPipeline:
@@ -14,6 +15,7 @@ class PredictPipeline:
         self.preprocessor = pickle.load(open("artifacts/preprocessor.pkl", "rb"))
         self.columns = pickle.load(open("artifacts/columns.pkl", "rb"))  # 🔥 IMPORTANT
         self.threshold = 0.88
+        self.explainer = PredictionExplainer(self.model, self.preprocessor, self.columns)
 
     def predict(self, input_data):
         try:
@@ -43,9 +45,12 @@ class PredictPipeline:
             proba = self.model.predict_proba(transformed)[:, 1]
             pred = (proba >= self.threshold).astype(int)
 
+            explanation = self.explainer.explain(transformed, input_df)
+
             return {
                 "prediction": int(pred[0]),
-                "probability": float(proba[0])
+                "probability": float(proba[0]),
+                "explanation": explanation
             }
 
         except Exception as e:

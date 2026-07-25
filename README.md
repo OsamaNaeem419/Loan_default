@@ -9,13 +9,13 @@ The system includes:
 - Data preprocessing & feature engineering
 - Machine learning model training
 - FastAPI backend for real-time prediction
-- Streamlit frontend for user interaction
+- React frontend for user interaction
 
 ---
 
 ## Architecture
 
-User Input (Streamlit UI)
+User Input (React UI)
         ↓
 FastAPI Backend
         ↓
@@ -31,7 +31,7 @@ Response (Probability + Decision)
 
 - End-to-end ML pipeline
 - Real-time predictions using FastAPI
-- Interactive UI using Streamlit
+- Interactive UI using React (Vite)
 - Probability-based decision output
 - Threshold tuning for business control
 - Handles categorical and numerical features
@@ -55,10 +55,15 @@ loan-approval-system/
 │   ├── train.csv
 │   └── test.csv
 │
-├── web_app/
-│   └── streamlit_app.py
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
+│   ├── index.html
+│   ├── vite.config.js
+│   └── package.json
 │
-├── main.py
 ├── requirements.txt
 └── README.md
 
@@ -70,7 +75,7 @@ loan-approval-system/
 - Pandas, NumPy
 - Scikit-learn
 - FastAPI
-- Streamlit
+- React + Vite
 - Pickle (Model Serialization)
 
 ---
@@ -79,10 +84,26 @@ loan-approval-system/
 ## How to Run
 
 ### 1. Start FastAPI backend
-uvicorn main:app --reload
+From the project root:
 
-### 2. Start Streamlit frontend
-streamlit run webapp/streamlit_app.py
+    pip install -r requirements.txt
+    uvicorn src.app:app --reload --port 8000
+
+Backend runs on http://127.0.0.1:8000 (interactive docs at /docs).
+
+### 2. Start React frontend
+In a second terminal:
+
+    cd frontend
+    npm install
+    npm run dev
+
+Frontend runs on http://localhost:5173
+
+The frontend calls the backend at http://127.0.0.1:8000 by default. To point it
+somewhere else, create `frontend/.env.local` with:
+
+    VITE_API_URL=http://your-host:port
 
 ---
 
