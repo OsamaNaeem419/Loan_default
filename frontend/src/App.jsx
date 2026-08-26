@@ -113,11 +113,105 @@ function Explanation({ explanation }) {
   );
 }
 
+function RejectionModal({ data, onClose }) {
+  if (!data) return null;
+  const isPolicy = data.stage === "policy_gate";
+
+  const overlay = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(15, 23, 42, 0.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    zIndex: 1000,
+  };
+  const card = {
+    background: "#ffffff",
+    color: "#0f172a",
+    borderRadius: "16px",
+    maxWidth: "440px",
+    width: "100%",
+    padding: "34px 30px 30px",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
+    textAlign: "center",
+    position: "relative",
+    borderTop: "5px solid #dc2626",
+  };
+  const badge = {
+    width: "56px",
+    height: "56px",
+    borderRadius: "50%",
+    background: "#fee2e2",
+    color: "#dc2626",
+    fontSize: "26px",
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 16px",
+  };
+  const closeX = {
+    position: "absolute",
+    top: "12px",
+    right: "14px",
+    border: "none",
+    background: "transparent",
+    fontSize: "22px",
+    lineHeight: 1,
+    cursor: "pointer",
+    color: "#94a3b8",
+  };
+  const okBtn = {
+    marginTop: "24px",
+    padding: "10px 26px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#dc2626",
+    color: "#ffffff",
+    fontWeight: 600,
+    cursor: "pointer",
+  };
+  const body = { margin: 0, lineHeight: 1.6, color: "#334155" };
+
+  return (
+    <div style={overlay} role="dialog" aria-modal="true" onClick={onClose}>
+      <div style={card} onClick={(event) => event.stopPropagation()}>
+        <button type="button" style={closeX} aria-label="Close" onClick={onClose}>
+          ×
+        </button>
+        <div style={badge}>✕</div>
+        <h2 style={{ margin: "0 0 10px", color: "#dc2626" }}>Application Rejected</h2>
+        {isPolicy ? (
+          <p style={body}>
+            Thank you for your application. Unfortunately, we are unable to approve it
+            at this time. In accordance with our lending policy, we cannot extend
+            credit to applicants with a previous loan default on file. We appreciate
+            your understanding and welcome you to apply again once your credit profile
+            has strengthened.
+          </p>
+        ) : (
+          <p style={body}>
+            Thank you for your application. Unfortunately, it does not meet our current
+            approval criteria. You are welcome to review the contributing factors on
+            the decision panel and to reapply in the future.
+          </p>
+        )}
+        <button type="button" style={okBtn} onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [rejectModal, setRejectModal] = useState(null);
 
   // loan_percent_income is fully determined by loan_amnt / person_income, so it
   // is computed rather than being a free-form input the user can make
@@ -167,7 +261,9 @@ export default function App() {
         throw new Error(body.detail || `API error (${response.status})`);
       }
 
-      setResult(await response.json());
+      const data = await response.json();
+      setResult(data);
+      if (data.prediction === 0) setRejectModal(data);
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
@@ -183,16 +279,19 @@ export default function App() {
     setForm(INITIAL_FORM);
     setResult(null);
     setError(null);
+    setRejectModal(null);
   }
 
   return (
     <div className="page">
       <header>
-        <h1>Loan Approval Prediction System</h1>
-        <p>Enter the applicant details to get an approval decision.</p>
+        <span className="eyebrow">Credit decisioning</span>
+        <h1>Loan Approval Prediction</h1>
+        <p>Enter the applicant details to get an instant, explainable decision.</p>
       </header>
 
-      <form onSubmit={handleSubmit}>
+      <div className="layout">
+      <form onSubmit={handleSubmit} className="panel form-panel">
         <fieldset disabled={loading}>
           <legend>Applicant</legend>
           <div className="grid">
@@ -296,7 +395,13 @@ export default function App() {
 
         <div className="actions">
           <button type="submit" disabled={loading}>
-            {loading ? "Predicting…" : "Predict"}
+            {loading ? (
+              <>
+                <span className="spinner" /> Predicting…
+              </>
+            ) : (
+              "Predict"
+            )}
           </button>
           <button type="button" className="secondary" onClick={handleReset}>
             Reset
@@ -304,25 +409,49 @@ export default function App() {
         </div>
       </form>
 
-      {error && <div className="alert error">{error}</div>}
+      <div className="panel result-panel">
+        {error && <div className="alert error">{error}</div>}
 
-      {result && (
-        <div
-          className={`result ${result.prediction === 1 ? "approved" : "rejected"}`}
-        >
-          <h2>{result.prediction === 1 ? "APPROVED" : "REJECTED"}</h2>
-          <p className="probability">
-            Approval probability: <strong>{(result.probability * 100).toFixed(2)}%</strong>
-          </p>
-          <div className="bar">
-            <div
-              className="bar-fill"
-              style={{ width: `${Math.min(result.probability * 100, 100)}%` }}
-            />
+        {!result && !error && (
+          <div className="empty-state">
+            <div className="empty-icon">→</div>
+            <h3>No decision yet</h3>
+            <p>Fill in the applicant and loan details, then hit Predict.</p>
           </div>
-          <Explanation explanation={result.explanation} />
-        </div>
-      )}
+        )}
+
+        {result && (
+          <div
+            className={`result ${result.prediction === 1 ? "approved" : "rejected"}`}
+          >
+            <button
+              type="button"
+              className="result-close"
+              aria-label="Dismiss result"
+              onClick={() => setResult(null)}
+            >
+              ×
+            </button>
+            <div className="result-badge">
+              {result.prediction === 1 ? "✓" : "✕"}
+            </div>
+            <h2>{result.prediction === 1 ? "Approved" : "Rejected"}</h2>
+            <p className="probability">
+              Approval probability: <strong>{(result.probability * 100).toFixed(2)}%</strong>
+            </p>
+            <div className="bar">
+              <div
+                className="bar-fill"
+                style={{ width: `${Math.min(result.probability * 100, 100)}%` }}
+              />
+            </div>
+            <Explanation explanation={result.explanation} />
+          </div>
+        )}
+      </div>
+      </div>
+
+      <RejectionModal data={rejectModal} onClose={() => setRejectModal(null)} />
     </div>
   );
 }

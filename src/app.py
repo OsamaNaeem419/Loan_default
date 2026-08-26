@@ -5,13 +5,13 @@ import pandas as pd
 
 from src.pipeline.predict_pipeline import PredictPipeline
 
-app = FastAPI()
+app = FastAPI(title="Loan Approval API (two-stage)")
 
-
-# -------------------------------
-# CORS - the React dev server runs on a different origin (port 5173),
-# so the browser needs this to be allowed to call /predict.
-# -------------------------------
+# ---------------------------------------------------------------------------
+# CORS — the React dev server runs on a different origin (port 5173), so the
+# browser needs this to be allowed to call /predict. Tighten allow_origins to
+# the deployed frontend URL before going to production.
+# ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -24,16 +24,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# -------------------------------
-# Load pipeline ONCE (important fix)
-# -------------------------------
+# Load the pipeline once at startup.
 pipeline = PredictPipeline()
 
 
-# -------------------------------
-# Input Schema
-# -------------------------------
 class LoanInput(BaseModel):
     person_age: int
     person_income: float
@@ -45,52 +39,32 @@ class LoanInput(BaseModel):
     loan_percent_income: float
     cb_person_cred_hist_length: int
     credit_score: int
+    # Used by the Stage-1 policy gate, not by the model.
     previous_loan_defaults_on_file: str
 
 
-# -------------------------------
-# Home Route
-# -------------------------------
 @app.get("/")
 def home():
-    return {"message": "Loan Prediction API Running"}
+    return {"message": "Loan Prediction API running (two-stage)"}
 
 
-# -------------------------------
-# Prediction Route
-# -------------------------------
 @app.post("/predict")
 def predict(data: LoanInput):
-
+    """
+    Returns the decision plus which stage produced it:
+      - stage = "policy_gate": rejected by the prior-default rule; `reason` set.
+      - stage = "model":       scored by Stage 2; `explanation` + `counterfactual` set.
+    """
     try:
-        # Convert input to DataFrame
         input_df = pd.DataFrame([data.model_dump()])
-
-        # IMPORTANT FIX: enforce feature order
-        expected_columns = [
-            "person_age",
-            "person_income",
-            "person_emp_exp",
-            "person_home_ownership",
-            "loan_amnt",
-            "loan_intent",
-            "loan_int_rate",
-            "loan_percent_income",
-            "cb_person_cred_hist_length",
-            "credit_score",
-            "previous_loan_defaults_on_file"
-        ]
-
-        input_df = input_df[expected_columns]
-
-        # Prediction
         result = pipeline.predict(input_df)
-
         return {
             "prediction": result["prediction"],
             "probability": result["probability"],
-            "explanation": result["explanation"]
+            "stage": result["stage"],
+            "reason": result["reason"],
+            "explanation": result["explanation"],
+            "counterfactual": result["counterfactual"],
         }
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

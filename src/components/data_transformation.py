@@ -1,8 +1,7 @@
 import os
 import sys
-import pandas as pd
-import numpy as np
 import pickle
+import pandas as pd
 
 from dataclasses import dataclass
 from sklearn.compose import ColumnTransformer
@@ -10,81 +9,66 @@ from sklearn.preprocessing import OneHotEncoder
 
 from src.logger import logging
 from src.exception import CustomException
+from src import config
 
 
 @dataclass
 class DataTransformationConfig:
-    preprocessor_obj_file_path: str = os.path.join("artifacts", "preprocessor.pkl")
+    preprocessor_path: str = config.PREPROCESSOR_PATH
 
 
 class DataTransformation:
+    """
+    Applies the Stage-1 gate to each split, drops the non-model columns, and
+    one-hot encodes the categoricals. The model is trained only on gated
+    applicants (no prior default) — the exact population it will score in
+    production (notebook Section 10).
+    """
+
     def __init__(self):
-        self.config = DataTransformationConfig()
+        self.cfg = DataTransformationConfig()
 
-    def get_data_transformer_object(self, categorical_cols):
+    def _gate_and_xy(self, df):
+        # Stage-1 gate: keep only applicants without a prior default.
+        gated = df[df[config.POLICY_COLUMN] != config.POLICY_REJECT_VALUE]
+        features = config.model_features(df.columns.tolist())
+        return gated[features], gated[config.TARGET]
+
+    def initiate_data_transformation(self, train_path, val_path, test_path):
         try:
-            logging.info("Creating preprocessing object")
+            logging.info("Data transformation started (gate + encode)")
 
-            categorical_transformer = OneHotEncoder(handle_unknown="ignore")
+            X_train, y_train = self._gate_and_xy(pd.read_csv(train_path))
+            X_val, y_val = self._gate_and_xy(pd.read_csv(val_path))
+            X_test, y_test = self._gate_and_xy(pd.read_csv(test_path))
 
+            model_columns = X_train.columns.tolist()
+            categorical_cols = X_train.select_dtypes(
+                include=["object", "string"]).columns.tolist()
+
+            logging.info(f"Model features ({len(model_columns)}): {model_columns}")
+            logging.info(f"Categorical: {categorical_cols}")
+            logging.info(f"Gated rows — train {len(X_train):,} / "
+                         f"val {len(X_val):,} / test {len(X_test):,}")
+
+            # Tree model: one-hot the categoricals, pass numerics through as-is.
             preprocessor = ColumnTransformer(
-                transformers=[
-                    ("cat", categorical_transformer, categorical_cols)
-                ],
-                remainder="passthrough"
+                transformers=[("cat", OneHotEncoder(handle_unknown="ignore"),
+                               categorical_cols)],
+                remainder="passthrough",
             )
 
-            return preprocessor
+            X_train_t = preprocessor.fit_transform(X_train)
+            X_val_t = preprocessor.transform(X_val)
+            X_test_t = preprocessor.transform(X_test)
 
-        except Exception as e:
-            raise CustomException(e, sys)
+            os.makedirs(os.path.dirname(self.cfg.preprocessor_path), exist_ok=True)
+            with open(self.cfg.preprocessor_path, "wb") as f:
+                pickle.dump(preprocessor, f)
+            logging.info("Preprocessor saved")
 
-    def initiate_data_transformation(self, train_path, test_path):
-        try:
-            logging.info("Starting data transformation")
-
-            train_df = pd.read_csv(train_path)
-            test_df = pd.read_csv(test_path)
-
-            target_column = "loan_status"
-
-            X_train = train_df.drop(columns=[target_column])
-            y_train = train_df[target_column]
-
-            X_test = test_df.drop(columns=[target_column])
-            y_test = test_df[target_column]
-
-            # 🔥 SAVE COLUMN ORDER BEFORE TRANSFORM
-            columns = X_train.columns.tolist()
-
-            categorical_cols = X_train.select_dtypes(include=["object"]).columns
-            logging.info(f"Categorical columns: {list(categorical_cols)}")
-
-            preprocessor = self.get_data_transformer_object(categorical_cols)
-
-            # FIT + TRANSFORM
-            X_train_transformed = preprocessor.fit_transform(X_train)
-            X_test_transformed = preprocessor.transform(X_test)
-
-            logging.info("Data transformation completed")
-
-            os.makedirs(os.path.dirname(self.config.preprocessor_obj_file_path),
-                        exist_ok=True)
-
-            pickle.dump(preprocessor,
-                        open(self.config.preprocessor_obj_file_path, "wb"))
-
-            logging.info("Preprocessor saved successfully")
-
-            # 🔥 RETURN COLUMNS TOO (CRITICAL FIX)
-            return (
-                X_train_transformed,
-                X_test_transformed,
-                y_train,
-                y_test,
-                self.config.preprocessor_obj_file_path,
-                columns
-            )
+            return (X_train_t, y_train, X_val_t, y_val, X_test_t, y_test,
+                    preprocessor, model_columns)
 
         except Exception as e:
             raise CustomException(e, sys)

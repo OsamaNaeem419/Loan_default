@@ -1,64 +1,59 @@
+import os
+import sys
+import json
+import pickle
+
 from src.components.data_ingestion import DataIngestion
 from src.components.data_transformation import DataTransformation
 from src.models.model_trainer import ModelTrainer
 from src.logger import logging
 from src.exception import CustomException
-import sys
-import pickle
-import os
+from src import config
 
 
 class TrainPipeline:
+    """
+    End-to-end training for the two-stage system's Stage-2 model.
+    Saves four artifacts: model.pkl, preprocessor.pkl, columns.pkl and
+    threshold.json — everything the serving pipeline needs.
+    """
+
     def initiate_training_pipeline(self):
         try:
             logging.info("Training pipeline started")
 
-            # -----------------------------
-            # STEP 1: DATA INGESTION
-            # -----------------------------
-            ingestion = DataIngestion()
-            train_path, test_path = ingestion.initiate_data_ingestion()
+            train_path, val_path, test_path = DataIngestion().initiate_data_ingestion()
 
-            # -----------------------------
-            # STEP 2: DATA TRANSFORMATION
-            # -----------------------------
-            transformation = DataTransformation()
-            X_train, X_test, y_train, y_test, preprocessor, columns = transformation.initiate_data_transformation(
-                train_path, test_path
+            (X_train, y_train, X_val, y_val, X_test, y_test,
+             preprocessor, model_columns) = (
+                DataTransformation().initiate_data_transformation(
+                    train_path, val_path, test_path)
             )
 
-            # -----------------------------
-            # SAVE COLUMN ORDER (CRITICAL FIX)
-            # -----------------------------
-            os.makedirs("artifacts", exist_ok=True)
+            os.makedirs(config.ARTIFACTS_DIR, exist_ok=True)
+            with open(config.COLUMNS_PATH, "wb") as f:
+                pickle.dump(model_columns, f)
+            logging.info("Model column order saved")
 
-            with open("artifacts/columns.pkl", "wb") as f:
-                pickle.dump(columns, f)
+            model_path, threshold = ModelTrainer().initiate_model_training(
+                X_train, y_train, X_val, y_val, X_test, y_test)
 
-            logging.info("Column order saved successfully")
+            with open(config.THRESHOLD_PATH, "w") as f:
+                json.dump({"threshold": threshold}, f, indent=2)
 
-            # -----------------------------
-            # STEP 3: MODEL TRAINING
-            # -----------------------------
-            trainer = ModelTrainer()
-            model_path = trainer.initiate_model_training(
-                X_train, X_test, y_train, y_test
-            )
-
-            logging.info(f"Training pipeline completed. Model saved at {model_path}")
+            logging.info(f"Training pipeline completed. Threshold={threshold:.4f}")
 
             print("\n==============================")
             print("PIPELINE COMPLETED SUCCESSFULLY")
             print("==============================")
-            print("Model saved at:", model_path)
+            print(f"Model:      {model_path}")
+            print(f"Preprocessor: {config.PREPROCESSOR_PATH}")
+            print(f"Columns:    {config.COLUMNS_PATH}")
+            print(f"Threshold:  {threshold:.4f} -> {config.THRESHOLD_PATH}")
 
         except Exception as e:
             raise CustomException(e, sys)
 
 
-# -----------------------------
-# RUN PIPELINE
-# -----------------------------
 if __name__ == "__main__":
-    pipeline = TrainPipeline()
-    pipeline.initiate_training_pipeline()
+    TrainPipeline().initiate_training_pipeline()

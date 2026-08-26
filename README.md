@@ -1,118 +1,160 @@
 # Loan Approval Prediction System
 
-## Overview
+An end-to-end, explainable loan-approval system built around a **two-stage decision**:
+a deterministic policy gate followed by a machine-learning scorecard. It ships as a
+FastAPI backend and a React (Vite) frontend, with per-decision SHAP explanations.
 
-This project is an end-to-end machine learning system that predicts whether a loan application will be approved or rejected based on applicant financial and personal information.
-
-The system includes:
-- Data ingestion from database/CSV
-- Data preprocessing & feature engineering
-- Machine learning model training
-- FastAPI backend for real-time prediction
-- React frontend for user interaction
+The full analysis behind every design decision lives in
+[`notebooks/loan_approval_system.ipynb`](notebooks/loan_approval_system.ipynb); the
+feature investigation that shaped it is in
+[`interest_rate_investigation.docx`](interest_rate_investigation.docx).
 
 ---
 
-## Architecture
+## Why two stages
 
-User Input (React UI)
-        ↓
-FastAPI Backend
-        ↓
-Preprocessing Pipeline
-        ↓
-ML Model (Prediction)
-        ↓
-Response (Probability + Decision)
+Exploratory analysis found that `previous_loan_defaults_on_file == "Yes"` rejects an
+applicant with **zero exceptions across 22,776 cases** — that is a *policy rule*, not a
+statistical signal. Leaving it inside the model let it dominate predictions and suppress
+every other feature (credit score's signal grew ~28× once those rows were removed). So it
+is executed as a rule, and the model is trained only on the applicants it will actually
+score. This is the standard credit-risk pattern: **knockout rules, then a scorecard.**
+
+```
+                     Applicant submits form
+                               |
+                               v
+               ┌────────────────────────────────┐
+    STAGE 1    │  POLICY GATE                    │
+    (a rule)   │  prior default on file?         │
+               └────────────────────────────────┘
+                      |                   |
+                    Yes                   No
+                      |                   |
+                      v                   v
+                  REJECT           ┌─────────────────────────┐
+              reason:              │  STAGE 2                │
+              prior_default        │  XGBoost, 10 features   │
+              (no model call)      │  + tuned threshold      │
+                                   └─────────────────────────┘
+                                              |
+                                              v
+                                     APPROVE / REJECT
+                                     + SHAP explanation
+```
 
 ---
 
 ## Features
 
-- End-to-end ML pipeline
-- Real-time predictions using FastAPI
-- Interactive UI using React (Vite)
-- Probability-based decision output
-- Threshold tuning for business control
-- Handles categorical and numerical features
+- **Two-stage decision** — a deterministic policy gate, then an XGBoost scorecard.
+- **Trained on the served population** — the model only ever sees applicants without a
+  prior default, so training and inference distributions match.
+- **10 features** — the raw 13 minus the policy column, plus `person_gender` (no signal +
+  protected attribute) and `person_education` (no signal), both dropped.
+- **Validation-tuned threshold** — chosen on a held-out validation set and stored in
+  `artifacts/threshold.json`; a single lever, changeable without retraining.
+- **Per-decision explanations** — SHAP contributions folded back to the fields the user
+  actually filled in.
+- **Honest metrics** — a 70/15/15 split; the threshold is selected on validation and
+  reported on test.
 
 ---
 
-## Project Structure
+## Project structure
 
+```
 loan-approval-system/
-│
 ├── src/
+│   ├── config.py                     # policy rule, feature list, paths (single source of truth)
 │   ├── components/
-│   ├── pipeline/
+│   │   ├── data_ingestion.py         # read CSV, clean, 70/15/15 stratified split
+│   │   └── data_transformation.py    # Stage-1 gate + drop columns + one-hot encode
 │   ├── models/
-│   ├── exception.py
-│   └── utils.py
-│
-├── artifacts/
-│   ├── model.pkl
-│   ├── preprocessor.pkl
-│   ├── train.csv
-│   └── test.csv
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-│
+│   │   └── model_trainer.py          # train XGBoost, tune threshold, report on test
+│   ├── pipeline/
+│   │   ├── train_pipeline.py         # end-to-end training; writes all artifacts
+│   │   ├── predict_pipeline.py       # Stage-1 gate + Stage-2 model at inference
+│   │   └── explain.py                # SHAP → per-field contributions
+│   ├── app.py                        # FastAPI app (/predict)
+│   ├── exception.py  logger.py
+├── artifacts/                        # generated by training (model, preprocessor, columns, threshold)
+├── data/raw/loan_data.csv            # source data
+├── notebooks/loan_approval_system.ipynb
+├── frontend/                         # React + Vite UI
 ├── requirements.txt
 └── README.md
+```
 
 ---
 
-## Tech Stack
+## Tech stack
 
-- Python
-- Pandas, NumPy
-- Scikit-learn
-- FastAPI
-- React + Vite
-- Pickle (Model Serialization)
+Python · pandas · NumPy · scikit-learn · XGBoost · SHAP · FastAPI · React + Vite
 
 ---
 
+## How to run
 
-## How to Run
+### 1. Install and train (from the project root)
 
-### 1. Start FastAPI backend
-From the project root:
+```bash
+pip install -r requirements.txt
+python -m src.pipeline.train_pipeline
+```
 
-    pip install -r requirements.txt
-    uvicorn src.app:app --reload --port 8000
+Training reads `data/raw/loan_data.csv` and writes four artifacts to `artifacts/`:
+`model.pkl`, `preprocessor.pkl`, `columns.pkl`, and `threshold.json`. Rerun it only when
+the data or the model changes. On the source data it reports **ROC-AUC ≈ 0.926** on the
+gated test set, with a validation-tuned threshold of **≈ 0.49**.
 
-Backend runs on http://127.0.0.1:8000 (interactive docs at /docs).
+### 2. Start the backend
 
-### 2. Start React frontend
-In a second terminal:
+```bash
+uvicorn src.app:app --reload --port 8000
+```
 
-    cd frontend
-    npm install
-    npm run dev
+Runs at `http://127.0.0.1:8000` (interactive docs at `/docs`).
 
-Frontend runs on http://localhost:5173
+### 3. Start the frontend (second terminal)
 
-The frontend calls the backend at http://127.0.0.1:8000 by default. To point it
-somewhere else, create `frontend/.env.local` with:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-    VITE_API_URL=http://your-host:port
+Runs at `http://localhost:5173` and calls the backend automatically. To point it
+elsewhere, set `VITE_API_URL` in `frontend/.env.local`.
 
 ---
 
+## The API
 
-## Business Logic
+`POST /predict` returns the decision and which stage produced it:
 
-- Prediction = 1 → Loan Approved
-- Prediction = 0 → Loan Rejected
-- Probability represents model confidence in approval
+```jsonc
+// Stage 1 — rejected by the policy gate
+{ "prediction": 0, "probability": 0.0, "stage": "policy_gate",
+  "reason": "prior_default_on_file", "explanation": null, "counterfactual": null }
+
+// Stage 2 — scored by the model
+{ "prediction": 1, "probability": 0.73, "stage": "model", "reason": null,
+  "explanation": { "supported": [...], "underwhelmed": [...] }, "counterfactual": {...} }
+```
 
 ---
 
+## Notes and limitations
+
+- The dataset is **synthetic**; its internal logic does not mirror real underwriting
+  (e.g. credit score and interest rate point the opposite way to reality). The model
+  correctly learns what is present, so these metrics describe *this dataset*, not real
+  lending. See the notebook's limitations section.
+- The **threshold is a placeholder** — it maximises F1, which assumes a false approval and
+  a false rejection cost the same. They do not; re-derive it from real loan economics
+  before any production use (notebook §11.4). It is a one-line change in
+  `artifacts/threshold.json`, no retraining needed.
+- The **Stage-1 rule is dataset-specific.** Real lenders price prior defaults rather than
+  auto-declining; re-check that the rule still holds without exception before retraining
+  on any new data.
